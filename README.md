@@ -133,12 +133,12 @@ client.set_connection(usb=True)
 
 **ADB PAIR:**
 ```python
-Client.pair_device("192.168.1.xx:5555", "123456")
+client.pair_device("192.168.1.xx:5555", "123456")
 ```
 
 **TCP/IP:** `Take Note: Need adb pair device first.`
 ```python
-Client.connect_device("192.168.1.xx:5555")
+client.connect_device("192.168.1.xx:5555")
 ```
 
 ---
