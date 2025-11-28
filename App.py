@@ -10,9 +10,6 @@ from scrcpy_wrapper3v import ScrcpyClient
 SETTINGS_FILE = 'settings.json'
 eel.init('GUI')
 
-# =========================================================
-# WORKER PROCESS (Scrcpy Engine)
-# =========================================================
 def scrcpy_worker_process(command_queue, log_queue):
     client = None
     logger = logging.getLogger("Worker")
@@ -32,15 +29,13 @@ def scrcpy_worker_process(command_queue, log_queue):
                         client = ScrcpyClient(ENV=env_path, debug=True)
                         log_queue.put(f"Worker: Initializing Scrcpy...")
 
-                        # 1. Connection (Fixed Logic)
+                        # 1. Connection
                         tcp_ip = s.get('tcp_ip', None)
                         serial = s.get('serial', None)
                         
-                        # Only use --tcpip if strictly needed (connecting to disconnected device)
-                        # If user already connected via the "Connect" button, we treat it as a specific serial
                         if tcp_ip and tcp_ip.strip():
-                             # If we are manually targeting an IP
-                             client.set_connection(tcpip=tcp_ip)
+                             client.connect_device(device_ip_port=tcp_ip)
+                             client.set_connection(tcp=True)
                         elif serial and serial != "No devices found":
                              client.set_connection(serial=serial)
                         else:

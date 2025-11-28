@@ -1,3 +1,7 @@
 .venv
 draft
 __pycache__
+App.spec
+dist
+build
+settings.json
