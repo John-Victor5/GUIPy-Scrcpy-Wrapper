@@ -2,107 +2,106 @@ let isRunning = false;
 let connectionMode = 'usb';
 
 window.onload = async function() {
-    await loadSavedSettings(); // <--- Load settings first
+    await loadSavedSettings();
+    setMode('usb'); // Default
     fetchDevices();
 };
 
-// --- NEW FUNCTION TO RESTORE SETTINGS ---
 async function loadSavedSettings() {
     let s = await eel.load_settings_py()();
+    if (!s || Object.keys(s).length === 0) return;
+
+    log("Restoring settings...");
+    const setVal = (id, val) => { let el = document.getElementById(id); if(el && val != null) el.value = val; };
+    const setCheck = (id, val) => { let el = document.getElementById(id); if(el && val != null) el.checked = val; };
+
+    setVal('env_path', s.env_path);
+    setVal('tcp_ip', s.tcp_ip); // Wi-Fi IP
     
-    if (s && Object.keys(s).length > 0) {
-        log("Restoring previous settings...");
-        
-        // Helper to safely set values
-        const setVal = (id, val) => { 
-            let el = document.getElementById(id); 
-            if(el && val !== undefined && val !== null) el.value = val; 
-        };
-        const setCheck = (id, val) => { 
-            let el = document.getElementById(id); 
-            if(el && val !== undefined) el.checked = val; 
-        };
+    // Video
+    setVal('max_size', s.max_size); setVal('fps', s.fps); setVal('bitrate', s.bitrate);
+    setVal('video_buffer', s.video_buffer); setVal('video_codec', s.video_codec);
+    setVal('codec_options', s.codec_options); setCheck('no_video', s.no_video);
 
-        // Restore Paths & Connection
-        setVal('env_path', s.env_path);
-        setVal('tcp_ip', s.tcp_ip);
-        
-        // Restore Video
-        setVal('max_size', s.max_size);
-        setVal('fps', s.fps);
-        setVal('bitrate', s.bitrate);
-        setVal('video_buffer', s.video_buffer);
-        setVal('video_codec', s.video_codec);
-        setVal('codec_options', s.codec_options);
-        setCheck('no_video', s.no_video);
+    // Audio
+    setVal('audio_source', s.audio_source); setVal('audio_codec', s.audio_codec);
+    setVal('audio_bitrate', s.audio_bitrate); setCheck('audio_dup', s.audio_dup);
+    setCheck('no_audio', s.no_audio);
 
-        // Restore Audio
-        setVal('audio_source', s.audio_source);
-        setVal('audio_codec', s.audio_codec);
-        setVal('audio_bitrate', s.audio_bitrate);
-        setCheck('audio_dup', s.audio_dup);
-        setCheck('no_audio', s.no_audio);
+    // Inputs
+    setVal('keyboard_mode', s.keyboard_mode); setVal('mouse_mode', s.mouse_mode);
+    setVal('gamepad_mode', s.gamepad_mode);
 
-        // Restore Controller
-        setVal('keyboard_mode', s.keyboard_mode);
-        setVal('mouse_mode', s.mouse_mode);
-        setVal('gamepad_mode', s.gamepad_mode);
+    // App
+    setVal('window_title', s.window_title); setVal('window_x', s.window_x);
+    setVal('window_y', s.window_y); setVal('window_width', s.window_width);
+    setVal('window_height', s.window_height); setCheck('fullscreen', s.fullscreen);
+    setCheck('always_top', s.always_top); setCheck('borderless', s.borderless);
 
-        // Restore App
-        setVal('window_title', s.window_title);
-        setVal('window_x', s.window_x);
-        setVal('window_y', s.window_y);
-        setVal('window_width', s.window_width);
-        setVal('window_height', s.window_height);
-        setCheck('fullscreen', s.fullscreen);
-        setCheck('always_top', s.always_top);
-        setCheck('borderless', s.borderless);
+    // Control
+    setCheck('no_control', s.no_control); setCheck('stay_awake', s.stay_awake);
+    setCheck('turn_screen_off', s.turn_screen_off); setCheck('power_off_on_close', s.power_off_on_close);
 
-        // Restore Control
-        setCheck('no_control', s.no_control);
-        setCheck('stay_awake', s.stay_awake);
-        setCheck('turn_screen_off', s.turn_screen_off);
-        setCheck('power_off_on_close', s.power_off_on_close);
+    // Camera
+    setCheck('use_camera', s.use_camera); setVal('camera_id', s.camera_id);
+    setVal('camera_facing', s.camera_facing); setVal('camera_size', s.camera_size);
 
-        // Restore Camera
-        setCheck('use_camera', s.use_camera);
-        setVal('camera_id', s.camera_id);
-        setVal('camera_facing', s.camera_facing);
-        setVal('camera_size', s.camera_size);
+    // Adv
+    setVal('crop', s.crop); setVal('record_filename', s.record_filename);
+    setVal('record_format', s.record_format);
 
-        // Restore Advanced
-        setVal('crop', s.crop);
-        setVal('record_filename', s.record_filename);
-        setVal('record_format', s.record_format);
-
-        // If a TCP IP was saved, switch to that tab
-        if(s.tcp_ip && s.tcp_ip.trim() !== "") {
-            setMode('tcp');
-        }
-    }
+    // Switch mode if IP was saved
+    if(s.tcp_ip && s.tcp_ip.length > 5) setMode('tcp');
 }
 
 function setMode(mode) {
     connectionMode = mode;
     document.getElementById('tab-usb').classList.toggle('active', mode === 'usb');
     document.getElementById('tab-tcp').classList.toggle('active', mode === 'tcp');
+    document.getElementById('panel-usb').style.display = (mode === 'usb') ? 'block' : 'none';
+    document.getElementById('panel-tcp').style.display = (mode === 'tcp') ? 'block' : 'none';
+}
 
-    if(mode === 'tcp') {
-        document.getElementById('tcp_ip').style.display = 'block';
-        document.getElementById('device_select').disabled = true;
+function togglePairing() {
+    const box = document.getElementById('pairing-box');
+    const arrow = document.getElementById('pair-arrow');
+    if (box.style.display === 'none') {
+        box.style.display = 'block';
+        arrow.innerText = '▲';
     } else {
-        document.getElementById('tcp_ip').style.display = 'none';
-        document.getElementById('device_select').disabled = false;
+        box.style.display = 'none';
+        arrow.innerText = '▼';
     }
 }
 
-async function fetchDevices() {
-    if(connectionMode === 'tcp') return;
-    
-    // Pass the potentially restored path to the scanner
+// === NEW PAIRING FUNCTIONS ===
+async function adbPair() {
+    const ip = document.getElementById('pair_ip').value;
+    const code = document.getElementById('pair_code').value;
     const path = document.getElementById('env_path').value;
     
-    log("Scanning for USB devices...");
+    if(!ip || !code) { log("Error: Enter IP:Port and Pairing Code"); return; }
+    
+    log(`Attempting to pair ${ip}...`);
+    let res = await eel.adb_pair_py(path, ip, code)();
+    log(res.message);
+}
+
+async function adbConnect() {
+    const ip = document.getElementById('tcp_ip').value;
+    const path = document.getElementById('env_path').value;
+
+    if(!ip) { log("Error: Enter Device IP (e.g. 192.168.1.5:5555)"); return; }
+
+    log(`Attempting to connect to ${ip}...`);
+    let res = await eel.adb_connect_py(path, ip)();
+    log(res.message);
+}
+// ==============================
+
+async function fetchDevices() {
+    const path = document.getElementById('env_path').value;
+    log("Scanning USB devices...");
     const select = document.getElementById('device_select');
     select.innerHTML = "<option>Scanning...</option>";
 
@@ -152,7 +151,7 @@ async function start() {
         audio_dup: document.getElementById('audio_dup').checked,
         no_audio: document.getElementById('no_audio').checked,
 
-        // Controller
+        // Inputs
         keyboard_mode: document.getElementById('keyboard_mode').value,
         mouse_mode: document.getElementById('mouse_mode').value,
         gamepad_mode: document.getElementById('gamepad_mode').value,
@@ -186,12 +185,10 @@ async function start() {
     };
 
     if (connectionMode === 'usb' && (s.serial === "No USB devices found" || !s.serial)) {
-        log("Error: Select a valid USB device or switch to Wi-Fi mode.");
-        return;
+        log("Error: Select a USB device."); return;
     }
     if (connectionMode === 'tcp' && !s.tcp_ip) {
-        log("Error: Enter a valid IP address.");
-        return;
+        log("Error: Enter Device IP or Connect first."); return;
     }
 
     setUIState(true);

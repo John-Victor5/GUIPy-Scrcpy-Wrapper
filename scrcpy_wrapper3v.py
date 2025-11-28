@@ -2,30 +2,34 @@ import subprocess
 import logging
 import os
 import shutil
+import time
 from typing import List, Optional
 from pathlib import Path
 
+# Configure Logging
 logging.basicConfig(level=logging.INFO, format='| [%(asctime)s] - %(levelname)s | >> %(message)s', datefmt='%H:%M:%S')
 logger = logging.getLogger(__name__)
 
-__version__ = "0.1.3"
+__version__ = "0.1.2.3"
 
 class ScrcpyClient:
     def __init__(self, ENV: Optional[str] = None, debug: bool = False):
         logger.disabled = not debug
         self.args = []
-        self.process = None
+        self.process = None  # Handle to the running process
         base_dir = Path(__file__).parent
 
         local_scrcpy = None
         local_adb = None
 
+        # 1. Check provided ENV folder
         if ENV:
             local_env_path = (base_dir / ENV).resolve()
             local_scrcpy = local_env_path / "scrcpy.exe"
             local_adb = local_env_path / "adb.exe"
             self.scrcpy_dir = str(local_env_path)
         
+        # 2. Verify Local Files
         if local_scrcpy and local_scrcpy.exists() and local_adb.exists():
             logger.info(f"Using LOCAL scrcpy: {local_scrcpy}")
             logger.info(f"Using LOCAL adb: {local_adb}")
@@ -35,6 +39,7 @@ class ScrcpyClient:
 
         logger.info("Local scrcpy not found in ENV. Trying system PATH...")
 
+        # 3. Check System PATH
         system_scrcpy = shutil.which("scrcpy")
         system_adb = shutil.which("adb")
 
@@ -46,6 +51,7 @@ class ScrcpyClient:
             self.scrcpy_dir = str(Path(system_scrcpy).parent)
             return
 
+        # 4. Handle Missing Files
         missing = []
         if not (local_scrcpy and local_scrcpy.exists()) and not system_scrcpy:
             missing.append("scrcpy.exe")
@@ -57,7 +63,11 @@ class ScrcpyClient:
             "Provide a valid ENV folder or install scrcpy/adb in PATH."
         )
     
+    # ==========================================
+    #    ADB COMMANDS
+    # ==========================================
     def list_devices(self) -> List[dict]:
+        """Returns a list of connected devices using the ADB in the scrcpy folder."""
         if not os.path.exists(self.adb_path):
             logger.error("ADB not found, cannot list devices.")
             return []
@@ -87,6 +97,54 @@ class ScrcpyClient:
         except Exception as e:
             logger.error(f"Failed to list devices: {e}")
             return []
+
+    def pair_device(self, device_ip_port: str, pair_code: str) -> bool:
+        """
+        Pairs a device using wireless debugging.
+        :param device_ip_port: format "192.168.1.5:45455"
+        :param pair_code: The 6-digit pairing code from the device
+        """
+        logger.info(f"Attempting to pair: {device_ip_port} with code {pair_code}")
+        try:
+            # We use run instead of call to capture output for logging
+            result = subprocess.run(
+                [self.adb_path, "pair", device_ip_port, pair_code],
+                cwd=self.scrcpy_dir,
+                capture_output=True,
+                text=True
+            )
+
+            if result.returncode == 0:
+                logger.info("Device paired successfully!")
+                return True
+            else:
+                logger.error(f"Failed to pair device. Output: {result.stdout} | Error: {result.stderr}")
+                return False
+        except Exception as e:
+            logger.error(f"Exception during pairing: {e}")
+            return False
+
+    def connect_device(self, device_ip_port: str) -> bool:
+        """
+        Connects to a TCP/IP device (required after pairing).
+        :param device_ip_port: format "192.168.1.5:5555" (Note: port might be different than pairing port)
+        """
+        try:
+            result = subprocess.run(
+                [self.adb_path, "connect", device_ip_port],
+                cwd=self.scrcpy_dir,
+                capture_output=True,
+                text=True
+            )
+            if "connected to" in result.stdout.lower():
+                logger.info(f"Successfully connected to {device_ip_port}")
+                return True
+            else:
+                logger.warning(f"Connection output: {result.stdout.strip()}")
+                return False
+        except Exception as e:
+            logger.error(f"Exception during connect: {e}")
+            return False
     
     def _get_adb_prop(self, serial: str, prop: str) -> str:
         try:
@@ -97,6 +155,10 @@ class ScrcpyClient:
             return res.stdout.strip()
         except Exception:
             return "Unknown"
+
+    # ==========================================
+    # SETTINGS METHODS
+    # ==========================================
 
     def set_video(self, max_size: int = 0, fps: int = 0, bitrate: str = None, 
                   codec: str = "h265", buffer: int = 0, codec_options: str = None, 
@@ -150,8 +212,14 @@ class ScrcpyClient:
     def set_connection(self, usb: bool = False, tcp: bool = False, serial: str = None, tcpip: str = None):
         if usb: self.args.append("--select-usb")
         if tcp: self.args.append("--select-tcp")
+        
+        # Note: 'pair' removed from here. Use Client.pair_device() before starting.
+        
         if tcpip: self.args.append(f"--tcp-ip={tcpip}")
         if serial: self.args.append(f"--serial={serial}")
+
+        if usb and tcp:
+            raise ValueError("CONFLICT: You cannot use both USB and TCP modes simultaneously!")
 
     def set_control(self, no_control: bool = False, stay_awake: bool = False, 
                     turn_screen_off: bool = False, power_off_on_close: bool = False):
@@ -209,14 +277,17 @@ class ScrcpyClient:
         logger.info(f"Target EXE: {self.scrcpy_path}")
         logger.info(f"Working Dir: {self.scrcpy_dir}")
         logger.info(f"Command: {' '.join(full_command)}")
+        
+        # Check devices before starting (optional, but good practice)
         devices = self.list_devices()
-        if not devices: raise RuntimeError("No devices found. Please connect a device and try again.")
-
+        if not devices: 
+            logger.warning("No devices found via 'adb devices'. Scrcpy might fail or wait.")
+            
         try:
             self.process = subprocess.Popen(
                 full_command, 
                 cwd=self.scrcpy_dir,
-                stdout=None,
+                stdout=None, 
                 stderr=None, 
                 text=True
             )
@@ -247,21 +318,31 @@ class ScrcpyClient:
             raise e
 
 if __name__ == "__main__":
-    Client = ScrcpyClient(debug=True)
+    # Example Usage
+    Client = ScrcpyClient(ENV=r"C:\scrcpy", debug=True)
+    
+    # === NEW PAIRING LOGIC EXAMPLE ===
+    # Uncomment to pair a new device
+    # is_paired = Client.pair_device("192.168.1.10:41234", "123456")
+    # if is_paired:
+    #     Client.connect_device("192.168.1.10:5555") 
+    # =================================
     
     devices = Client.list_devices()
     print(f"Devices found: {devices}")
 
-    Client.set_video(
-        fps=60,
-        bitrate="18M",
-        codec="h265",
-    )
-
-    proc = Client.start()
-    
-    try:
-        print("Scrcpy running... Press Ctrl+C to stop.")
-        proc.wait() 
-    except KeyboardInterrupt:
-        Client.stop()
+    if devices:
+        Client.set_video(fps=60, bitrate="18M", codec="h265")
+        
+        # If using wireless, ensure you set tcpip mode or select-tcp if already connected
+        # Client.set_connection(tcp=True) 
+        
+        proc = Client.start()
+        
+        try:
+            print("Scrcpy running... Press Ctrl+C to stop.")
+            proc.wait() 
+        except KeyboardInterrupt:
+            Client.stop()
+    else:
+        logger.warning("No devices connected.")
