@@ -199,7 +199,6 @@ def main():
     print("Scrcpy started. Press Ctrl+C to stop.")
 
     try:
-        # Keep main thread alive while scrcpy runs
         proc.wait() 
     except KeyboardInterrupt:
         print("\nStopping...")
