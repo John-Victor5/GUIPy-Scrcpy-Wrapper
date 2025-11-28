@@ -130,9 +130,15 @@ client.set_controller(
 ```python
 client.set_connection(usb=True)
 ```
-**Wireless (TCP/IP):**
+
+**ADB PAIR:**
 ```python
-client.set_connection(tcp=True, tcpip="192.168.1.40:5555")
+Client.pair_device("192.168.1.xx:5555", "123456")
+```
+
+**TCP/IP:** `Take Note: Need adb pair device first.`
+```python
+Client.connect_device("192.168.1.xx:5555")
 ```
 
 ---
@@ -166,6 +172,7 @@ client.set_advanced(
     record_format="mp4"
 )
 ```
+`Take Note: Record file is saved on scrcpy folder.`
 
 ---
 
