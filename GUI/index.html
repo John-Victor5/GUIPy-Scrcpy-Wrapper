@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GUIPy Scrcpy Ultimate</title>
+    <link rel="stylesheet" href="style.css">
+    <script type="text/javascript" src="/eel.js"></script>
+</head>
+<body>
+
+    <header>
+        <div>GUIPY Scrcpy</div>
+    </header>
+
+    <div class="container">
+        <!-- LEFT PANEL -->
+        <div class="left-panel">
+            <div class="input-group" style="width: 100%;">
+                <label>Scrcpy Folder (Optional)</label>
+                <input type="text" id="env_path" placeholder="C:\scrcpy...">
+            </div>
+
+            <div class="input-group" style="width: 100%;">
+                <label>Target Device</label>
+                <select id="device_select">
+                    <option value="">Searching...</option>
+                </select>
+            </div>
+            
+            <div class="connection-mode">
+                <label style="margin-bottom:5px; display:block;">Connection Mode</label>
+                <div class="tabs">
+                    <button class="tab active" onclick="setMode('usb')" id="tab-usb">USB</button>
+                    <button class="tab" onclick="setMode('tcp')" id="tab-tcp">Wi-Fi</button>
+                </div>
+                <!-- Hidden Input for TCP IP -->
+                <input type="text" id="tcp_ip" placeholder="192.168.1.X:5555" style="display:none; margin-top:10px;">
+            </div>
+
+            <button class="refresh-btn" onclick="fetchDevices()">↻ Scan Devices</button>
+
+            <div style="flex:1;"></div>
+
+            <div class="status-indicator" id="status_text">Ready</div>
+            <button class="btn-main btn-start" id="btn_start" onclick="toggleScrcpy()">START SERVER</button>
+            <button class="btn-main btn-stop" id="btn_stop" onclick="toggleScrcpy()">STOP SERVER</button>
+        </div>
+
+        <!-- RIGHT PANEL (Settings) -->
+        <div class="right-panel">
+            
+            <!-- VIDEO -->
+            <details open>
+                <summary>Video Settings</summary>
+                <div class="setting-content">
+                    <div class="input-group">
+                        <label>Max Size (0=Auto)</label>
+                        <input type="number" id="max_size" value="0">
+                    </div>
+                    <div class="input-group">
+                        <label>FPS (Limit)</label>
+                        <input type="number" id="fps" value="60">
+                    </div>
+                    <div class="input-group">
+                        <label>Bitrate (e.g. 12M)</label>
+                        <input type="text" id="bitrate" value="8M">
+                    </div>
+                    <div class="input-group">
+                        <label>Buffer (ms)</label>
+                        <input type="number" id="video_buffer" value="0" placeholder="Latency buffering">
+                    </div>
+                    <div class="input-group">
+                        <label>Codec</label>
+                        <select id="video_codec">
+                            <option value="h265">H.265 (HEVC)</option>
+                            <option value="h264">H.264 (AVC)</option>
+                            <option value="av1">AV1</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Codec Options</label>
+                        <input type="text" id="codec_options" placeholder="key=value:key2=val2">
+                    </div>
+                    <div class="checkbox-group" style="grid-column:span 2;">
+                        <input type="checkbox" id="no_video">
+                        <label for="no_video">Disable Video Stream</label>
+                    </div>
+                </div>
+            </details>
+
+            <!-- AUDIO -->
+            <details>
+                <summary>Audio Settings</summary>
+                <div class="setting-content">
+                    <!-- INSIDE web/index.html -->
+                    <div class="input-group">
+                        <label>Source</label>
+                        <select id="audio_source">
+                            <option value="playback">System Audio (Default)</option>
+                            <option value="mic">Microphone</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Codec</label>
+                        <select id="audio_codec">
+                            <option value="opus">Opus</option>
+                            <option value="aac">AAC</option>
+                            <option value="raw">RAW</option>
+                            <option value="flac">FLAC</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Bitrate (e.g. 128K)</label>
+                        <input type="text" id="audio_bitrate" placeholder="Default">
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="audio_dup">
+                        <label for="audio_dup">Duplicate Audio (Keep on device)</label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="no_audio">
+                        <label for="no_audio">Disable Audio</label>
+                    </div>
+                </div>
+            </details>
+
+            <!-- CONTROLLER (New) -->
+            <details>
+                <summary>Controller (Input)</summary>
+                <div class="setting-content">
+                    <div class="input-group">
+                        <label>Keyboard Mode</label>
+                        <select id="keyboard_mode">
+                            <option value="sdk">SDK (Default)</option>
+                            <option value="uhid">UHID (Hovers/Shortcuts)</option>
+                            <option value="aoa">AOA (USB Simulation)</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Mouse Mode</label>
+                        <select id="mouse_mode">
+                            <option value="sdk">SDK (Default)</option>
+                            <option value="uhid">UHID</option>
+                            <option value="aoa">AOA</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Gamepad Mode</label>
+                        <select id="gamepad_mode">
+                            <option value="disabled">Disabled</option>
+                            <option value="uhid">UHID</option>
+                            <option value="aoa">AOA</option>
+                        </select>
+                    </div>
+                </div>
+            </details>
+
+            <!-- APPLICATION -->
+            <details>
+                <summary>Window & Position</summary>
+                <div class="setting-content">
+                    <div class="input-group" style="grid-column: span 2;">
+                        <label>Window Title</label>
+                        <input type="text" id="window_title" placeholder="Custom Title">
+                    </div>
+                    <div class="input-group">
+                        <label>Width</label>
+                        <input type="number" id="window_width" placeholder="px">
+                    </div>
+                    <div class="input-group">
+                        <label>Height</label>
+                        <input type="number" id="window_height" placeholder="px">
+                    </div>
+                    <div class="input-group">
+                        <label>Pos X</label>
+                        <input type="number" id="window_x" placeholder="px">
+                    </div>
+                    <div class="input-group">
+                        <label>Pos Y</label>
+                        <input type="number" id="window_y" placeholder="px">
+                    </div>
+                    <div class="checkbox-group"><input type="checkbox" id="fullscreen"><label for="fullscreen">Fullscreen</label></div>
+                    <div class="checkbox-group"><input type="checkbox" id="always_top"><label for="always_top">Always on Top</label></div>
+                    <div class="checkbox-group"><input type="checkbox" id="borderless"><label for="borderless">Borderless</label></div>
+                </div>
+            </details>
+
+            <!-- CONTROL -->
+            <details>
+                <summary>Device Control</summary>
+                <div class="setting-content">
+                    <div class="checkbox-group"><input type="checkbox" id="no_control"><label for="no_control">Read-only (View Only)</label></div>
+                    <div class="checkbox-group"><input type="checkbox" id="stay_awake"><label for="stay_awake">Stay Awake</label></div>
+                    <div class="checkbox-group"><input type="checkbox" id="turn_screen_off"><label for="turn_screen_off">Screen Off (Mobile)</label></div>
+                    <div class="checkbox-group"><input type="checkbox" id="power_off_on_close"><label for="power_off_on_close">Power Off on Close</label></div>
+                </div>
+            </details>
+
+            <!-- CAMERA -->
+            <details>
+                <summary>Camera Mirroring</summary>
+                <div class="setting-content">
+                    <div class="checkbox-group" style="grid-column: span 2;">
+                        <input type="checkbox" id="use_camera">
+                        <label for="use_camera" style="color:var(--accent);">Enable Camera Mode</label>
+                    </div>
+                    <div class="input-group">
+                        <label>Camera ID (e.g. 0, 1)</label>
+                        <input type="number" id="camera_id" placeholder="ID">
+                    </div>
+                    <div class="input-group">
+                        <label>Facing</label>
+                        <select id="camera_facing">
+                            <option value="">(ID Priority)</option>
+                            <option value="back">Back</option>
+                            <option value="front">Front</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Size (e.g. 1920x1080)</label>
+                        <input type="text" id="camera_size" placeholder="1920x1080">
+                    </div>
+                </div>
+            </details>
+
+            <!-- ADVANCED -->
+            <details>
+                <summary>Advanced / Record</summary>
+                <div class="setting-content">
+                    <div class="input-group" style="grid-column: span 2;">
+                        <label>Crop (w:h:x:y)</label>
+                        <input type="text" id="crop" placeholder="e.g. 1224:1440:0:0">
+                    </div>
+                    <div class="input-group">
+                        <label>Record Filename</label>
+                        <input type="text" id="record_filename" placeholder="video.mp4">
+                    </div>
+                    <div class="input-group">
+                        <label>Format</label>
+                        <select id="record_format">
+                            <option value="mp4">MP4</option>
+                            <option value="mkv">MKV</option>
+                        </select>
+                    </div>
+                </div>
+            </details>
+
+        </div>
+    </div>
+
+    <footer>
+        <div id="log-container">
+            <div>| System initialized...</div>
+        </div>
+        <div class="credits">Made by JohnVictor5 2025</div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
