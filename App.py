@@ -212,7 +212,7 @@ if __name__ == '__main__':
     start_background_log_reader()
     
     try:
-        eel.start('index.html', size=(1100, 900))
+        eel.start('index.html', size=(900, 700), port=0, block=True, geometry={'resizable': False})
     except: pass
     finally:
         cmd_queue.put({'action': 'KILL'})

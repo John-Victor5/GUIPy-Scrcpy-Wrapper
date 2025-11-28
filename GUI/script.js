@@ -7,6 +7,10 @@ window.onload = async function() {
     fetchDevices();
 };
 
+window.addEventListener("resize", function() {
+    window.resizeTo(900, 700);
+});
+
 async function loadSavedSettings() {
     let s = await eel.load_settings_py()();
     if (!s || Object.keys(s).length === 0) return;

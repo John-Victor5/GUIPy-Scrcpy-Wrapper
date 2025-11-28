@@ -41,7 +41,7 @@ header {
 .container { display: flex; flex: 1; overflow: hidden; }
 
 .left-panel {
-    width: 500px;
+    width: 400px;
     background: var(--sidebar-bg);
     padding: 20px;
     display: flex;

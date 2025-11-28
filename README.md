@@ -12,6 +12,8 @@ It supports **auto-detection** of binaries, handling both local environments (EN
 
 </div>
 
+![alt text](image_1.png)
+![alt text](image_2.png)
 
 ---
 
